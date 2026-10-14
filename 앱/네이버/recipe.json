@@ -1,5 +1,5 @@
 {
-  "버전": "2026-09-17a",
+  "버전": "2026-10-14a",
   "표컨테이너": ".se-component.se-table",
   "글쓰기주소": "https://blog.naver.com/GoBlogWrite.naver",
   "설명": "네이버 스마트에디터 ONE 셀렉터와 동작. 2026-09-15 실측으로 통한 것만 넣었다. 네이버가 화면을 바꾸면 이 파일만 고친다.",
@@ -32,8 +32,13 @@
     "button[class*=text-format-toolbar-button]"
   ],
   "소제목옵션": [
+    "button[class*=text-format-sectionTitle]",
     "button:has-text(\"소제목\")",
     "li:has-text(\"소제목\")"
+  ],
+  "본문옵션설명": "2026-10-14 실측: 문단 서식 목록의 '본문' 항목 글자는 \"본문\\n본문\" 이라 글자로는 못 찾는다. 이름표(class)로 찾는다.",
+  "본문옵션": [
+    "button[class*=text-format-text]"
   ],
 
   "인용구버튼": [

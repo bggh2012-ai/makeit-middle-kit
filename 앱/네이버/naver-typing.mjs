@@ -15,6 +15,9 @@
 //   · 화면 읽기는 frameLocator("body").evaluate 로 한다. Codex 의 evaluate 는 읽기 전용이라 클릭 같은 부작용은 무시된다.
 //   · 셀렉터와 순서는 recipe.json 에 있다. 네이버가 화면을 바꾸면 그 파일만 고친다.
 //   · 판단하지 않는다. 안 되면 어디서 멈췄는지 그대로 돌려준다.
+//   · 한 번 쓴 글은 지우지 않는다. 블록마다 쓰자마자 화면을 보고 어긋난 곳은 그 자리만 고친다(서식 다시 입히기·표 칸 고치기).
+//     다 쓴 뒤 점검에서 남은 곳도 그 자리만 고치고, 못 고친 곳은 '확인할곳' 으로 알려 준다.
+//     (2026-10-14 진현님 지시: 다 쓴 글을 통째로 지웠다가 다시 쓰던 '다시쓰기' 를 없앰. 수강생 화면에서 자주 보였다)
 //
 // Playwright 로 직접 돌릴 때(코치 점검용)는 어댑터가 tab.ax 를 page.mouse / page.keyboard 로 흉내 낸다.
 
@@ -25,7 +28,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 // 이 파일을 고칠 때마다 올린다 (앱/배포.sh 가 커밋에 고정해 배포한다).
-export const 버전 = "2026-09-28a";
+export const 버전 = "2026-10-14a";
 
 const 여기 = path.dirname(fileURLToPath(import.meta.url));
 // 수강생 데이터 폴더(원고·사진). 앱 판에서는 실행() 이 옵션.데이터폴더 로 바꾼다. 프로그램 폴더(임시)와 다르다.
@@ -183,11 +186,6 @@ export async function 실행(옵션 = {}) {
       if (tab) 적기("탭잡기", { 방법: `이어쓰기 — 이 세션의 글쓰기 탭에서 블록${시작블록 + 1}부터` });
       else 적기("탭잡기", { 안내: "이 세션 탭 목록에 없어 열린 글쓰기 탭을 다시 잡습니다" });
     }
-    // 다시쓰기(점검에서 문제가 나와 같은 탭에서 처음부터 다시 쓰기) — 기억해 둔 탭을 쓴다. 같은 임시저장 글이 고쳐진다.
-    if (옵션.다시쓰기 && !tab) {
-      try { const 전탭 = globalThis.__메킷네이버탭; if (전탭 && /blog\.naver\.com/.test(String(await Promise.resolve(전탭.url())))) tab = 전탭; } catch {}
-      if (tab) 적기("탭잡기", { 방법: "다시쓰기 — 같은 글쓰기 탭" });
-    }
     // 이어쓰기가 아니면 수강생이 열어 둔 헌 글쓰기 탭은 잡지 않고 항상 새 탭을 연다.
     // 2026-09-23 실측: 앞선 실패로 남은 글쓰기 탭을 잡았더니 편집기를 못 읽었다 (새 탭은 3초 만에 편집기가 잡힘).
     const 탭들 = tab || (!옵션.열린탭쓰기 && !이어쓰기) ? [] : await chrome.user.openTabs();
@@ -297,20 +295,42 @@ export async function 실행(옵션 = {}) {
       if (r.y < 0 || r.y > f.h) throw new Error(`요소를 화면 안으로 못 가져옴 (y=${Math.round(r.y)}, 화면높이=${f.h})`);
       return { x: Math.round(f.x + r.x), y: Math.round(f.y + r.y), w: r.w, h: r.h };
     };
+    // 크롬 확장 연결이 잠깐 끊기는 오류. 같은 동작을 한 번 더 하면 된다.
+    // 2026-09-23 실측: 문단을 치다 "Detached while handling command." 로 그 문단이 통째로 빠졌고, 점검이 그걸 보고 글 전체를 지우고 다시 썼다.
+    const 잠깐끊김 = (e) => /Detached while handling command|Target closed|Session closed|Execution context was destroyed|No input was sent|socket hang up|ECONNRESET/i.test(String(e?.message || e));
+    const 정 = (t) => String(t || "").replace(/\s+/g, "");
     const 좌표클릭 = async (loc, 옵션 = {}) => {
-      const p = await 좌표(loc);
-      if (!(p.w > 0 && p.h > 0)) throw new Error("요소가 화면에 없음(크기 0)");
-      await ax.click([p.x, p.y], 옵션.clickCount ? { clickCount: 옵션.clickCount } : undefined);
-      return p;
+      for (let 회 = 0; ; 회++) {
+        try {
+          const p = await 좌표(loc);
+          if (!(p.w > 0 && p.h > 0)) throw new Error("요소가 화면에 없음(크기 0)");
+          await ax.click([p.x, p.y], 옵션.clickCount ? { clickCount: 옵션.clickCount } : undefined);
+          return p;
+        } catch (e) {
+          if (회 >= 1 || !잠깐끊김(e)) throw e;
+          적기("다시누름", { 오류: String(e?.message || e).slice(0, 80) });
+          await 쉬기(1500);
+        }
+      }
     };
     let 맥 = null;
     const 맥인가 = async () => { if (맥 === null) 맥 = /Mac/i.test(String(await pw.evaluate(() => navigator.platform).catch(() => ""))); return 맥; };
     // 줄 끝에 커서를 둔다 (글을 이어 치거나 Enter 로 새 줄을 만들기 전에)
     const 끝클릭 = async (loc) => {
-      // 끝 자리를 못 재면 예전처럼 가운데를 누른다 (멈추지 않게)
-      const p = await 좌표(loc, 글끝).catch(() => 좌표(loc));
-      if (!(p.w > 0 && p.h > 0)) throw new Error("요소가 화면에 없음(크기 0)");
-      await ax.click([p.x, p.y]);
+      let p = null;
+      for (let 회 = 0; !p; 회++) {
+        try {
+          // 끝 자리를 못 재면 예전처럼 가운데를 누른다 (멈추지 않게)
+          const q = await 좌표(loc, 글끝).catch(() => 좌표(loc));
+          if (!(q.w > 0 && q.h > 0)) throw new Error("요소가 화면에 없음(크기 0)");
+          await ax.click([q.x, q.y]);
+          p = q;
+        } catch (e) {
+          if (회 >= 1 || !잠깐끊김(e)) throw e;
+          적기("다시누름", { 오류: String(e?.message || e).slice(0, 80) });
+          await 쉬기(1500);
+        }
+      }
       await 쉬기(150);
       // 윈도우는 End 로 한 번 더 확실히 줄 끝에. 맥은 End 가 커서는 안 옮기고 화면만 맨 아래로 튀게 해서 누르지 않는다.
       if (!(await 맥인가())) await 키("End");
@@ -330,19 +350,74 @@ export async function 실행(옵션 = {}) {
       await 좌표클릭(b.loc);
       return b.셀렉터;
     };
+    // 빈 칸에 보이는 회색 안내 글자. 화면 글을 읽을 때 이건 쓴 글이 아니다 (2026-09-23 실측: 빈 본문 17자 = 이 문구, 빈 제목 = "제목").
+    const 빈칸안내 = ["글감과함께나의일상을기록해보세요!", "제목"];
+    // 문장 중 화면 칸에 이미 들어간 앞부분을 뺀 나머지 (띄어쓰기는 빼고 센다).
+    // 화면 글이 문장의 앞부분이 아니면 null — 글이 어디로 갔는지 모르니 다시 치지 않는다 (같은 글이 두 번 들어가지 않게).
+    const 남은글 = (문장, 화면) => {
+      let 쳤음 = 정(화면);
+      if (빈칸안내.includes(쳤음) && !정(문장).startsWith(쳤음)) 쳤음 = "";
+      const s = String(문장);
+      if (!쳤음) return s;
+      if (!정(s).startsWith(쳤음)) return null;
+      let n = 0, i = 0;
+      while (i < s.length && n < 쳤음.length) { if (!/\s/.test(s[i])) n++; i++; }
+      return s.slice(i);
+    };
     // 어절(띄어쓰기) 단위로 톡톡 친다. 글자마다 치면 한 글자에 한 번씩 브라우저를 왕복해서 2,500자에 3분 넘게 걸린다 (2026-09-17 실측).
     // 긴 어절은 4자씩 끊는다. 화면에서는 여전히 사람이 치는 것처럼 보인다.
-    const 타이핑 = async (문장) => {
+    // 칸 = 지금 글을 넣는 자리(새 줄·표 칸·제목 칸, 비어 있던 곳). 치는 도중 확장 연결이 잠깐 끊기면 그 칸에 들어간 글자를 보고 남은 글자만 이어 친다.
+    const 타이핑 = async (문장, 칸 = null) => {
       const 조각들 = [];
       for (const 어절 of String(문장).split(/(?<=\s)/)) {
         for (let i = 0; i < 어절.length; i += 4) 조각들.push(어절.slice(i, i + 4));
       }
       for (const 조각 of 조각들) {
-        await 글넣기(조각);
+        try { await 글넣기(조각); }
+        catch (e) {
+          if (!칸 || !잠깐끊김(e)) throw e;
+          await 쉬기(1500);
+          const 화면 = await 칸.evaluate((el) => el.innerText || "").catch(() => null);
+          const 남은 = 화면 === null ? null : 남은글(문장, 화면);
+          if (남은 === null) throw e;
+          적기("이어치기", { 오류: String(e?.message || e).slice(0, 80), 남은글자: 남은.length });
+          await 끝클릭(칸);
+          if (남은) await 타이핑(남은);
+          return;
+        }
         // 조각을 넣은 뒤 글감 창이 떴으면 그 조각은 검색칸으로 들어간 것이다. 끄고 커서를 되돌린 뒤 그 조각만 다시 넣는다 (최대 2번).
         for (let 재시도 = 0; 재시도 < 2 && (await 글감끄기(`'${조각}' 입력`)); 재시도++) await 글넣기(조각);
         await 쉬기(랜덤(딜레이));
       }
+    };
+    // 글을 쓰는 자리는 늘 글 끝이다. 마지막 본문·소제목 줄 = 지금 치고 있는 줄. (표 칸·인용구 안 줄은 빼고 센다)
+    const 마지막줄 = () => F.locator(".se-component.se-text .se-text-paragraph, .se-component.se-sectionTitle .se-text-paragraph").last();
+    const 끝부품종류 = () => F.locator("body").first().evaluate((el) => {
+      const cs = el.ownerDocument.querySelectorAll(".se-component");
+      const c = cs[cs.length - 1];
+      return c ? ((String(c.className).match(/se-(text|table|quotation|sectionTitle|image|horizontalLine)\b/) || [])[1] || "?") : "";
+    }).catch(() => "");
+    // 줄 끝 Enter. 연결이 끊겨 Enter 가 들어갔는지 모르면 마지막 줄을 본다 — 글이 남아 있으면(안 들어감) 그 줄 끝을 누르고 한 번 더.
+    const 줄바꿈 = async () => {
+      try { await 키("Enter"); }
+      catch (e) {
+        if (!잠깐끊김(e)) throw e;
+        await 쉬기(1500);
+        const 끝줄 = await 마지막줄().evaluate((el) => el.innerText || "").catch(() => null);
+        if (끝줄 === null) throw e;
+        if (정(끝줄) && !빈칸안내.includes(정(끝줄))) { await 끝클릭(마지막줄()); await 키("Enter"); }
+        적기("다시누름", { 키: "Enter", 오류: String(e?.message || e).slice(0, 80) });
+      }
+    };
+    // 글 끝 줄의 끝에 커서를 둔다. 블록이 멈춘 뒤 줄이 선택된 채로 남아 있으면 다음 글이 그 위에 덮어써져 지워진다. 그래서 한 번 눌러 선택을 푼다.
+    const 글끝으로 = async () => {
+      if (!["text", "sectionTitle"].includes(await 끝부품종류())) return "끝이 글 줄이 아님";
+      const 끝 = 마지막줄();
+      if ((await 끝.count().catch(() => 0)) === 0) return "줄 없음";
+      await 끝클릭(끝);
+      const 글 = 정(await 끝.evaluate((el) => el.innerText || "").catch(() => ""));
+      if (글 && !빈칸안내.includes(글)) { await 키("Enter"); await 쉬기(250); return "끝 줄 끝 + 새 줄"; }
+      return "끝 빈 줄";
     };
     const 시간예산초 = 옵션.시간예산초 ?? R.시간예산초 ?? 180;
     const 시간초과 = () => (Date.now() - 시작) / 1000 > 시간예산초;
@@ -424,6 +499,13 @@ export async function 실행(옵션 = {}) {
       return `본문 추가: ${await 본문추가하기()}`;
     };
     // 문단이 표·인용구 안으로 잘못 들어갔는지 확인 (들어갔으면 기록)
+    // 화면 부품 순서를 짧게 (기록용). 제목=제 · 문단=글 · 소제목=소 · 표 · 인용구=인 · 사진=사 · 구분선=선. 글·소제목은 앞 4자와 끝 2자를 붙인다.
+    const 부품순서 = () => F.locator("body").first().evaluate((el) => [...el.ownerDocument.querySelectorAll(".se-component")].map((c) => {
+      const k = (String(c.className).match(/se-(documentTitle|text|table|quotation|sectionTitle|image|horizontalLine)\b/) || [])[1] || "?";
+      const 이름 = { documentTitle: "제", text: "글", table: "표", quotation: "인", sectionTitle: "소", image: "사", horizontalLine: "선" }[k] || "?";
+      const 글 = (c.innerText || "").replace(/\s+/g, "");
+      return k === "text" || k === "sectionTitle" ? `${이름}(${글.slice(0, 4)}${글.length > 6 ? "…" + 글.slice(-2) : 글.slice(4)})` : 이름;
+    }).join(" ")).catch(() => "");
     const 들어간곳 = (앞) => F.locator("body").first().evaluate((el, 앞) => [...el.ownerDocument.querySelectorAll(".se-component")]
       .filter((c) => (c.innerText || "").replace(/\s+/g, "").includes(앞))
       .map((c) => (String(c.className).match(/se-(text|table|quotation|sectionTitle)\b/) || [])[1] || "?"), 앞).catch(() => []);
@@ -434,19 +516,84 @@ export async function 실행(옵션 = {}) {
       if (!b) return "";
       return b.loc.evaluate((el) => (el.innerText || "").trim().split("\n")[0].trim()).catch(() => "");
     };
-    const 본문서식으로 = async () => {
-      const 전 = await 현재서식();
-      if (!전 || 전 === "본문") return 전 || "모름";
+    // 문단 서식에서 '본문' 을 고른다 (지금 커서 줄, 또는 골라 둔 줄).
+    // 2026-10-14 실측: 목록의 '본문' 항목 글자는 "본문\n본문" 이라, 예전처럼 글자가 딱 "본문" 인 항목을 찾으면 한 번도 못 찾았다
+    // (그래서 '문단 쓰기 전에 본문으로' 가 그동안 실제로는 안 됐다). 이름표(class)로 찾고, 없으면 첫 줄 글자로 찾는다.
+    const 본문고르기 = async () => {
       await 버튼클릭(R.문단서식버튼, "문단 서식"); await 쉬기(700);
+      const 항목 = await 찾기(R.본문옵션 || []);
+      if (항목) { await 좌표클릭(항목.loc); await 쉬기(500); return true; }
       const 자리 = await F.locator("body").first().evaluate((el) => {
-        const 후보 = [...el.ownerDocument.querySelectorAll("button, li")].filter((e) => (e.innerText || "").trim() === "본문" && e.getBoundingClientRect().height > 0);
+        const 후보 = [...el.ownerDocument.querySelectorAll("button")].filter((e) => (e.innerText || "").trim().split("\n")[0].trim() === "본문" && !/toolbar-button/.test(String(e.className)) && e.getBoundingClientRect().height > 0);
         const b = 후보[0]; if (!b) return null; const r = b.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
       }).catch(() => null);
-      if (자리) { const f = await 프레임위치(); await ax.click([Math.round(f.x + 자리.x), Math.round(f.y + 자리.y)]); await 쉬기(500); }
-      else { await 키("Escape"); await 쉬기(300); }
-      const 후 = await 현재서식();
-      적기("서식", { 바꿈: `${전} → ${후}` });
-      return 후;
+      if (자리) { const f = await 프레임위치(); await ax.click([Math.round(f.x + 자리.x), Math.round(f.y + 자리.y)]); await 쉬기(500); return true; }
+      await 키("Escape"); await 쉬기(300);
+      return false;
+    };
+    // 서식 버튼 글자를 못 읽으면(창이 좁아 도구 모음이 접히는 등) 글 끝 부품으로 본다.
+    // 바꾸다 안 돼도 멈추지 않는다. 예전엔 여기서 멈추면 그 문단이 통째로 건너뛰어져 빠졌다.
+    const 본문서식으로 = async () => {
+      try {
+        let 전 = await 현재서식();
+        if (!전 && (await 끝부품종류()) === "sectionTitle") 전 = "소제목(화면으로 봄)";
+        if (!전 || 전 === "본문") return 전 || "모름";
+        await 본문고르기();
+        const 후 = await 현재서식();
+        적기("서식", { 바꿈: `${전} → ${후}` });
+        return 후;
+      } catch (e) {
+        await 키("Escape").catch(() => {});
+        적기("서식", { 경고: `본문 서식으로 못 바꿈: ${String(e?.message || e).slice(0, 80)}` });
+        return "모름";
+      }
+    };
+    // 화면에서 글이 딱 맞는 줄의 번호 (뒤에서부터 찾는다). 없으면 -1
+    const 줄번호 = (셀렉터, 글) => F.locator("body").first().evaluate((el, a) => {
+      const 정 = (t) => String(t || "").replace(/\s+/g, "");
+      const 줄 = [...el.ownerDocument.querySelectorAll(a.s)];
+      for (let i = 줄.length - 1; i >= 0; i--) if (정(줄[i].innerText) === a.g) return i;
+      return -1;
+    }, { s: 셀렉터, g: 글 }).catch(() => -1);
+    // 글이 든 줄(뒤에서부터 찾은 첫 줄)을 번호로 잡는다. 딱맞게 = 줄 글 전체가 같을 때만.
+    // 코덱스의 locator 는 { hasText } 로 거르는 게 먹지 않는다 (2026-10-14 실측: '한눈에 보는 확인 표' 줄을 찾으라 했더니
+    // 마지막 소제목인 앞 소제목 줄을 잡아, 뒤 표와 문단이 앞 소제목 아래로 들어갔다). 그래서 hasText 는 쓰지 않는다.
+    const 줄찾기 = async (셀렉터, 글, 딱맞게 = false) => {
+      const k = await F.locator("body").first().evaluate((el, a) => {
+        const 정 = (t) => String(t || "").replace(/\s+/g, "");
+        const 줄 = [...el.ownerDocument.querySelectorAll(a.s)];
+        for (let i = 줄.length - 1; i >= 0; i--) { const t = 정(줄[i].innerText); if (a.딱 ? t === a.g : t.includes(a.g)) return i; }
+        return -1;
+      }, { s: 셀렉터, g: 정(글), 딱: 딱맞게 }).catch(() => -1);
+      return k < 0 || !정(글) ? null : F.locator(셀렉터).nth(k);
+    };
+    const 소제목칸 = ".se-component.se-sectionTitle .se-text-paragraph";
+    // 소제목 서식으로 잘못 들어간 줄을 본문 서식으로 되돌린다. 글은 그대로 두고 서식만 바꾼다. 줄 전체가 딱 맞는 줄만 건드린다.
+    const 본문으로되돌리기 = async (줄들) => {
+      let n = 0;
+      for (const 줄 of [].concat(줄들 || [])) {
+        const 글 = 정(줄);
+        if (!글) continue;
+        const k = await 줄번호(소제목칸, 글);
+        if (k < 0) continue;
+        try {
+          await 좌표클릭(F.locator(소제목칸).nth(k), { clickCount: 3 }); await 쉬기(500);
+          if (await 본문고르기()) n += 1;
+        } catch (e) { await 키("Escape").catch(() => {}); }
+      }
+      return n;
+    };
+    // 본문 줄(소제목 서식이 안 입혀진 줄)에 소제목 서식을 입힌다. 줄 전체가 딱 맞는 줄만.
+    const 소제목다시입히기 = async (글) => {
+      const k = await 줄번호(R.본문문단, 정(글));
+      if (k < 0) return false;
+      try {
+        await 좌표클릭(F.locator(R.본문문단).nth(k), { clickCount: 3 }); await 쉬기(600);
+        await 버튼클릭(R.문단서식버튼, "문단 서식"); await 쉬기(900);
+        await 버튼클릭(R.소제목옵션, "소제목 선택지"); await 쉬기(700);
+        await 키("Escape"); await 쉬기(200);
+        return true;
+      } catch (e) { await 키("Escape").catch(() => {}); return false; }
     };
     const 본문추가하기 = async () => {
       const b = await 찾기(R.본문추가버튼);
@@ -454,6 +601,22 @@ export async function 실행(옵션 = {}) {
       const p = await 좌표(b.loc).catch(() => null);
       if (!p || !(p.w > 0 && p.h > 0)) return "버튼 숨김 → 건너뜀";
       await ax.click([p.x, p.y]); await 쉬기(800); return "누름";
+    };
+    // 친 글이 화면 어디에도 없을 때 — 커서가 글 밖(사진·구분선 등)에 있었다. 글 끝에 쓸 줄을 만든다.
+    const 글끝줄준비 = async () => {
+      const 종류 = await 끝부품종류();
+      if (종류 === "text" || 종류 === "sectionTitle") return 글끝으로();
+      const 추가 = await 본문추가하기();
+      return `끝이 ${종류 || "?"} → 본문 추가 ${추가}`;
+    };
+    // 방금 친 글(앞 12자)이 화면에 있는지. 늦게 그려질 수 있어 없으면 한 번 더 기다렸다 본다 (다시 쳐서 두 번 들어가지 않게).
+    const 화면에있나 = async (앞) => {
+      if (!앞) return true;
+      for (let 회 = 0; 회 < 2; 회++) {
+        if ((await 들어간곳(앞)).length) return true;
+        await 쉬기(1000);
+      }
+      return false;
     };
 
     // 3. 편집기가 뜰 때까지 기다린다 (최대 20초). 새 탭은 5초 안에 편집기가 안 뜰 때가 있다 (2026-09-23 실측: "편집기 프레임을 못 찾았습니다").
@@ -480,31 +643,13 @@ export async function 실행(옵션 = {}) {
       await 쉬기(400);
     }
 
-    // 다시쓰기면 본문·제목을 비운다 (전체 선택 → 지우기)
-    if (옵션.다시쓰기 && !이어쓰기) {
-      const 플랫폼 = await pw.evaluate(() => navigator.platform).catch(() => "");
-      const 전체 = /Mac/i.test(String(플랫폼)) ? "super+a" : "ctrl+a";
-      const 본문첫 = F.locator(R.본문문단).first();
-      if ((await 본문첫.count().catch(() => 0)) > 0) {
-        await 좌표클릭(본문첫); await 쉬기(300);
-        for (let i = 0; i < 2; i++) { await 키(전체); await 쉬기(300); await 키("Delete"); await 쉬기(600); }
-      }
-      const 제목칸 = await 찾기(R.제목칸);
-      if (제목칸) { await 좌표클릭(제목칸.loc); await 쉬기(300); await 키(전체); await 쉬기(200); await 키("Delete"); await 쉬기(400); }
-      const 비운뒤 = await 에디터상태();
-      적기("다시쓰기", { 남은본문글자: 비운뒤.본문글자수, 남은제목: 비운뒤.제목, 남은부품: (비운뒤.컴포넌트 || []).length });
-      // 빈 칸에는 회색 안내 글자("제목", 본문 안내 문구)가 보인다 (2026-09-23 실측: 비운 뒤 제목 "제목", 본문 17자). 그건 남은 글이 아니다.
-      const 남은제목 = String(비운뒤.제목 || "").replace(/\s+/g, "");
-      if ((비운뒤.본문글자수 || 0) > 60 || (남은제목 && 남은제목 !== "제목" && 원고.제목.replace(/\s+/g, "").startsWith(남은제목.slice(0, 6)))) { 적기("다시쓰기", { 실패: "본문을 비우지 못했습니다" }); return 마무리(); }
-    }
-
     // 4. 제목
     if (!이어쓰기) {
       const t = await 찾기(R.제목칸);
       if (!t) { 적기("제목", { 실패: "제목 칸을 못 찾음", 시도: R.제목칸 }); return 마무리(); }
       await 좌표클릭(t.loc);
       await 쉬기(400);
-      await 타이핑(원고.제목);
+      await 타이핑(원고.제목, t.loc);
       await 쉬기(500);
       const 후 = await 에디터상태();
       const 들어감 = 후.제목.includes(원고.제목.slice(0, 8));
@@ -522,6 +667,10 @@ export async function 실행(옵션 = {}) {
     }
 
     // 6. 블록 순서대로 (시간 예산을 넘기면 임시저장하고 '이어서' 로 넘긴다 — REPL 한 번 실행에 시간 한도가 있다)
+    // 옵션.시험 — 강사 시험용(수강생 흐름에서는 안 씀): 일부러 어긋나게 써서 '그 자리 고치기' 가 실제 편집기에서 도는지 본다. 값은 블록 번호(1부터)·칸 번호(1부터).
+    //   { 문단소제목으로: [7], 소제목서식건너뛰기: [11], 표칸건너뛰기: [5, 9], 문단빼먹기: [17], 소제목빼먹기: [14] }
+    const 시험 = 옵션.시험 || {};
+    const 시험함 = (이름, n) => (시험[이름] || []).includes(n);
     let 이어서 = null;
     for (const [i, 블록] of (원고.블록 || []).entries()) {
       if (i < 시작블록) continue;
@@ -530,59 +679,110 @@ export async function 실행(옵션 = {}) {
       try { await 글감닫기(이름, "쓰기 전에"); } catch (e) { 적기(이름, { 경고: `글감 확인 실패: ${String(e?.message || e).slice(0, 80)}` }); }
       try {
         if (블록.종류 === "문단") {
-          await 본문서식으로();
-          for (const 줄 of 블록.글) { if (줄) await 타이핑(줄); await 키("Enter"); await 쉬기(랜덤(150)); }
+          if (시험함("문단소제목으로", i + 1)) {
+            await 버튼클릭(R.문단서식버튼, "문단 서식"); await 쉬기(900);
+            await 버튼클릭(R.소제목옵션, "소제목 선택지"); await 쉬기(700);
+            await 키("Escape"); await 쉬기(200);
+            적기(이름, { 시험: "이 문단을 일부러 소제목 서식으로 씀" });
+          } else await 본문서식으로();
+          const 줄들치기 = async () => { for (const 줄 of 블록.글) { if (줄) await 타이핑(줄, 마지막줄()); await 줄바꿈(); await 쉬기(랜덤(150)); } };
+          if (시험함("문단빼먹기", i + 1)) 적기(이름, { 시험: "처음 칠 때 일부러 안 침 (글이 사라진 것처럼)" });
+          else await 줄들치기();
           const 첫줄 = String((블록.글 || []).find(Boolean) || "").replace(/\s+/g, "").slice(0, 12);
-          const 곳 = 첫줄 ? await 들어간곳(첫줄) : [];
-          if (곳.length && !곳.includes("text")) 적기(이름, { 경고: `문단이 ${곳.join(",")} 안으로 들어갔습니다`, 첫줄 });
+          let 다시침 = "";
+          if (첫줄 && !(await 화면에있나(첫줄))) {
+            // 친 문단이 화면 어디에도 없다 → 글 끝에 쓸 줄을 만들고 한 번만 더 친다 (2026-10-14 실측: 사진·구분선 바로 뒤 문단이 통째로 안 남은 적이 있다)
+            다시침 = await 글끝줄준비();
+            await 본문서식으로();
+            await 줄들치기();
+          }
+          let 곳 = 첫줄 ? await 들어간곳(첫줄) : [];
+          if (다시침) 적기(이름, { [곳.includes("text") ? "고침" : "경고"]: `친 문단이 화면에 안 보여 글 끝에 한 번 더 침 (${다시침})`, 첫줄 });
+          if (곳.length && !곳.includes("text") && 곳.includes("sectionTitle")) {
+            // 소제목 서식이 이어져 문단이 소제목으로 들어갔다 → 그 줄들만 본문 서식으로 되돌린다 (글은 지우지 않는다).
+            // 뒤 문단까지 줄줄이 소제목으로 들어가지 않게 바로 고친다 (2026-09-23 실측: 같은 일이 한 글에서 10번 났다).
+            const 고친줄 = await 본문으로되돌리기(블록.글);
+            await 글끝으로();
+            await 본문서식으로();
+            곳 = await 들어간곳(첫줄);
+            적기(이름, { [곳.includes("text") ? "고침" : "경고"]: `소제목 서식으로 들어간 줄 ${고친줄}개를 본문으로 되돌림`, 첫줄 });
+          } else if (곳.length && !곳.includes("text")) 적기(이름, { 경고: `문단이 ${곳.join(",")} 안으로 들어갔습니다`, 첫줄 });
+          else if (첫줄 && !곳.length) 적기(이름, { 경고: "친 문단이 화면에 안 보입니다", 첫줄 });
           else 적기(이름, { 줄수: 블록.글.length });
 
         } else if (블록.종류 === "소제목") {
           // 소제목 위아래로 빈 줄 하나씩 (2026-09-23 진현님 지시). 앞 블록이 끝나면 커서는 빈 줄에 있으니 Enter 한 번이면 위 빈 줄이 생긴다.
-          if (i > 0) { await 본문서식으로(); await 키("Enter"); await 쉬기(250); }
-          await 타이핑(블록.글);
+          if (i > 0) { await 본문서식으로(); await 줄바꿈(); await 쉬기(250); }
+          if (시험함("소제목빼먹기", i + 1)) 적기(이름, { 시험: "처음 칠 때 일부러 안 침 (글이 사라진 것처럼)" });
+          else await 타이핑(블록.글, 마지막줄());
           await 쉬기(1000);
+          // 친 소제목이 화면 어디에도 없으면(커서가 글 밖) 글 끝에 쓸 줄을 만들고 한 번만 더 친다
+          if (!(await 화면에있나(정(블록.글).slice(0, 12)))) {
+            const 자리 = await 글끝줄준비();
+            await 본문서식으로();
+            await 타이핑(블록.글, 마지막줄());
+            await 쉬기(1000);
+            적기(이름, { 고침: `친 소제목이 화면에 안 보여 글 끝에 한 번 더 침 (${자리})` });
+          }
           const 앞머리 = 블록.글.slice(0, 12);
-          const 이미소제목 = async () => (await 에디터상태()).소제목.some((s) => s.includes(앞머리));
-          let 방법 = "";
-          if (await 이미소제목()) {
-            방법 = "이미 소제목 블록";
-          } else {
-            const 줄 = F.locator(R.본문문단, { hasText: 앞머리 }).last();
-            if ((await 줄.count()) === 0) throw new Error(`친 줄을 화면에서 못 찾음: ${앞머리}`);
-            await 좌표클릭(줄, { clickCount: 3 });
-            await 쉬기(600);
+          // 띄어쓰기는 빼고 비교한다 (편집기가 띄어쓰기를 다른 공백 글자로 바꿔 보일 때가 있다)
+          const 이미소제목 = async () => (await 에디터상태()).소제목.some((s) => 정(s).includes(정(앞머리)));
+          // 첫 번째는 줄을 다시 누르지 않고 지금 커서 줄(방금 친 줄)에 바로 입힌다. 글 끝 줄은 화면 맨 아래에 붙어 있어
+          // 다시 누르면 아래 '글감' 막대를 누르기도 했다 (2026-10-14 실측: 글 끝 소제목만 두 번 다 서식이 안 입혀짐). 두 번째는 예전처럼 줄을 세 번 눌러 고른다.
+          const 소제목입히기 = async (줄고르기) => {
+            if (줄고르기) {
+              const 줄 = (await 줄찾기(R.본문문단, 블록.글, true)) || (await 줄찾기(R.본문문단, 앞머리));
+              if (!줄) throw new Error(`친 줄을 화면에서 못 찾음: ${앞머리}`);
+              await 좌표클릭(줄, { clickCount: 3 });
+              await 쉬기(600);
+            }
             await 버튼클릭(R.문단서식버튼, "문단 서식");
             await 쉬기(900);
             await 버튼클릭(R.소제목옵션, "소제목 선택지");
             await 쉬기(700);
             await 키("Escape");
             await 쉬기(200);
-            방법 = "문단서식 → 소제목";
+          };
+          let 방법 = "";
+          if (시험함("소제목서식건너뛰기", i + 1)) {
+            방법 = "시험: 소제목 서식을 일부러 안 입힘";
+          } else if (await 이미소제목()) {
+            방법 = "이미 소제목 블록";
+          } else {
+            // 서식이 안 입혀졌으면 그 자리에서 한 번 더 한다. 그래도 안 되면 멈추지 않고 본문 줄로 두고 넘어간다 (다 쓴 뒤 점검에서 한 번 더 입힌다).
+            for (let 회 = 0; 회 < 2 && !(await 이미소제목()); 회++) {
+              try { await 소제목입히기(회 > 0); 방법 += (회 ? " → 줄 골라 한 번 더" : "문단서식 → 소제목"); }
+              catch (e) { await 키("Escape").catch(() => {}); 방법 += ` (${회 ? "다시도 " : ""}못 입힘: ${String(e?.message || e).slice(0, 60)})`; }
+            }
           }
+          const 소제목됨 = await 이미소제목();
           // 소제목 글 끝에 커서를 두고 Enter 로 새 줄을 만든다. 그 뒤 소제목이 통째로 남았는지 본다.
           // 가운데서 Enter 가 들어가 둘로 쪼개졌으면 Backspace 로 다시 붙이고 끝에서 한 번 더 한다.
+          // 서식을 못 입혔으면 본문 줄의 끝을 누른다. 줄이 선택된 채로 Enter 를 누르면 그 글이 지워진다.
           const 온글 = 블록.글.replace(/\s+/g, "");
           const 온전 = () => F.locator("body").first().evaluate((el, 온글) => [...el.ownerDocument.querySelectorAll(".se-component.se-sectionTitle")]
             .some((c) => (c.innerText || "").replace(/\s+/g, "").includes(온글)), 온글).catch(() => true);
-          const 소제목줄 = () => F.locator(".se-component.se-sectionTitle .se-text-paragraph", { hasText: 앞머리 }).last();
+          // 이 소제목 줄 (소제목 서식이면 소제목 칸에서, 못 입혔으면 본문 칸에서). 못 찾으면 누르지 않는다 — 엉뚱한 줄을 누르면 뒤 글이 그리로 간다.
+          const 친줄 = async () => (await 줄찾기(소제목칸, 블록.글, true)) || (await 줄찾기(R.본문문단, 블록.글, true)) || (await 줄찾기(소제목칸, 앞머리)) || (await 줄찾기(R.본문문단, 앞머리));
           const 끝에서엔터 = async () => {
-            if ((await 소제목줄().count()) > 0) await 끝클릭(소제목줄());
+            const 줄 = await 친줄();
+            if (줄) await 끝클릭(줄);
             await 쉬기(300);
             await 키("Enter");
             await 쉬기(500);
           };
           await 끝에서엔터();
           let 고침 = "";
-          if (!(await 온전())) {
+          if (소제목됨 && !(await 온전())) {
             await 키("Backspace"); await 쉬기(500);
             await 끝에서엔터();
             고침 = (await 온전()) ? "쪼개진 소제목을 붙여 다시 줄바꿈" : "소제목이 쪼개졌는데 못 붙임";
           }
           // 아래 빈 줄: 새 줄을 본문으로 돌리고 Enter 한 번
-          await 본문서식으로(); await 키("Enter"); await 쉬기(250);
+          await 본문서식으로(); await 줄바꿈(); await 쉬기(250);
           const 후 = await 에디터상태();
-          적기(이름, { 글: 블록.글, 방법, 소제목목록: 후.소제목, 컴포넌트: 후.컴포넌트, ...(고침 ? { [고침.includes("못") ? "경고" : "고침"]: 고침 } : {}) });
+          const 알림 = !소제목됨 ? { 경고: "소제목 서식을 못 입혔어요 (다 쓴 뒤 한 번 더 입힙니다)" } : 고침 ? { [고침.includes("못") ? "경고" : "고침"]: 고침 } : {};
+          적기(이름, { 글: 블록.글, 방법, 소제목목록: 후.소제목, 컴포넌트: 후.컴포넌트, ...알림 });
 
         } else if (블록.종류 === "인용구") {
           await 빈줄만들기();
@@ -596,22 +796,40 @@ export async function 실행(옵션 = {}) {
 
         } else if (블록.종류 === "표") {
           await 빈줄만들기();
-          await 버튼클릭(R.표버튼, "표");
-          await 쉬기(1800);
           // 방금 만든 표 = 문서의 마지막 표. 첫 표를 잡으면 두 번째 표부터 엉뚱한 곳(화면 밖)을 누른다 (2026-09-17 실측).
           const 표들 = F.locator(R.표컨테이너 || ".se-component.se-table");
-          if ((await 표들.count()) === 0) throw new Error("표가 안 생김");
-          const 칸 = 표들.last().locator(R.표칸 || "td");
+          const 전표수 = await 표들.count().catch(() => 0);
+          await 버튼클릭(R.표버튼, "표");
+          await 쉬기(1800);
+          if ((await 표들.count()) <= 전표수) throw new Error("표가 안 생김");
+          const 표 = 표들.last();
+          const 칸 = 표.locator(R.표칸 || "td");
           const 칸수 = await 칸.count();
           for (let k = 0; k < 블록.칸.length && k < 칸수; k++) {
+            if (시험함("표칸건너뛰기", k + 1)) continue;
             await 좌표클릭(칸.nth(k));
             await 쉬기(300);
-            await 타이핑(블록.칸[k]);
+            await 타이핑(블록.칸[k], 칸.nth(k));
             await 쉬기(200);
+          }
+          // 칸마다 원고와 맞는지 보고, 다른 칸만 그 칸 안에서 고친다 (빈 칸은 채우고, 다른 글이 든 칸은 그 칸 글만 바꾼다). 표 밖 글은 건드리지 않는다.
+          // 2026-09-28 윈도우 실측: 칸을 못 눌러 표가 빈 채로 남았다. 예전에는 다 쓴 뒤 점검이 이걸 보고 글 전체를 지우고 다시 썼다.
+          const 칸읽기 = () => 표.evaluate((t) => [...t.querySelectorAll("td")].map((td) => (td.innerText || "").replace(/\s+/g, ""))).catch(() => []);
+          const 처음칸 = await 칸읽기();
+          const 틀린칸 = 블록.칸.map((v, k) => (k < 칸수 && 처음칸[k] !== 정(v) ? k : -1)).filter((k) => k >= 0);
+          let 고친칸 = 0;
+          for (const k of 틀린칸) {
+            try {
+              await 좌표클릭(칸.nth(k), 처음칸[k] ? { clickCount: 3 } : {});
+              await 쉬기(300);
+              await 타이핑(블록.칸[k]);
+              await 쉬기(200);
+              고친칸 += 1;
+            } catch (e) { 적기(이름, { 경고: `표 ${k + 1}번째 칸을 못 고침: ${String(e?.message || e).slice(0, 80)}` }); }
           }
           const 나감 = await 아래로나가기("se-table");
           const 후 = await 에디터상태();
-          적기(이름, { 표칸수: 칸수, 넣은칸: 블록.칸.length, 화면칸: 후.표칸, 나감 });
+          적기(이름, { 표칸수: 칸수, 넣은칸: 블록.칸.length, 화면칸: 후.표칸, 나감, ...(틀린칸.length ? { 고침: `원고와 다른 칸 ${틀린칸.length}개 중 ${고친칸}개를 그 칸에서 고침` } : {}) });
 
         } else if (블록.종류 === "구분선") {
           await 버튼클릭(R.구분선버튼, "구분선");
@@ -651,15 +869,19 @@ export async function 실행(옵션 = {}) {
           적기(이름, { 건너뜀: `모르는 종류: ${블록.종류}` });
         }
         await 글감닫기(이름, "쓴 직후");
+        // 블록마다 화면 부품 순서를 짧게 남긴다 (기록.jsonl 로 어디서 순서가 틀어졌는지 볼 수 있게)
+        적기(이름, { 순서: await 부품순서() });
       } catch (e) {
         // 블록 하나가 안 되면 그 블록만 건너뛰고 글은 끝까지 쓴다. 열린 메뉴·선택 상태는 Escape 로 정리한다.
         적기(이름, { 건너뜀: String(e?.message || e).slice(0, 300) });
         // 표·인용구에서 멈추면 커서가 그 안에 남아 뒤 글이 전부 그 안으로 들어간다 (2026-09-28 윈도우 실측: 다음 문단이 표 첫 칸에 들어감).
         // 그 부품 바로 아래 줄로 커서를 빼낸다.
+        // 문단·소제목에서 멈추면 줄이 선택된 채로 남을 수 있다. 그대로 두면 다음 글이 그 줄을 덮어써 지운다 → 글 끝 줄을 눌러 선택을 푼다.
         try {
           await 키("Escape"); await 쉬기(300);
           const 부품 = 블록.종류 === "표" ? "se-table" : 블록.종류 === "인용구" ? "se-quotation" : "";
-          const 복구 = 부품 && (await F.locator(`.se-component.${부품}`).count().catch(() => 0)) > 0 ? await 아래로나가기(부품) : await 본문추가하기();
+          let 복구 = 부품 && (await F.locator(`.se-component.${부품}`).count().catch(() => 0)) > 0 ? await 아래로나가기(부품) : await 본문추가하기();
+          if (!부품 && 복구 !== "누름") 복구 = `${복구} → ${await 글끝으로()}`;
           적기(이름, { 복구 });
         } catch (e2) { 적기(이름, { 복구못함: String(e2?.message || e2).slice(0, 120) }); }
         if (옵션.실패시멈춤 === true) return 마무리();
@@ -667,44 +889,87 @@ export async function 실행(옵션 = {}) {
     }
 
     // 7. 임시저장 — 발행은 절대 안 한다
-    {
+    const 저장하기 = async (때) => {
       const 저장 = await 찾기(R.저장버튼);
-      if (!저장) { 적기("임시저장", { 실패: "저장 버튼 못 찾음" }); return 마무리(); }
+      // 고친 뒤 저장은 못 해도 멈추지 않는다 (글은 '다 쓴 뒤' 에 이미 저장됐다)
+      if (!저장) { 적기("임시저장", 때 === "고친 뒤" ? { 경고: "고친 뒤 저장 버튼을 못 찾음" } : { 실패: "저장 버튼 못 찾음" }); return false; }
       const 전 = await 에디터상태();
       await 좌표클릭(저장.loc);
       await 쉬기(3000);
-      적기("임시저장", { 셀렉터: 저장.셀렉터, 저장직전: 전 });
-    }
+      적기("임시저장", { 셀렉터: 저장.셀렉터, 때, 저장직전: 전 });
+      return true;
+    };
+    if (!(await 저장하기("다 쓴 뒤"))) return 마무리();
     if (이어서) { 적기("이어서", { ...이어서, 남은블록: (원고.블록 || []).length - 이어서.시작블록 }); return 마무리(이어서); }
-    // 8. 점검 — 원고와 네이버 화면을 대조한다 (2026-09-23 진현님 지시: 다 쓰고 잘못된 곳이 있는지 보고 고치기)
-    try {
-      const 사진확인 = !기록.some((r) => r.사진건너뜀);
-      const 요약 = { 제목: 원고.제목, 사진확인, 블록: (원고.블록 || []).map((b) => ({ 종류: b.종류, 글: b.글, 칸: b.칸 })) };
-      const 결과 = await F.locator("body").first().evaluate((el, 원) => {
-        const d = el.ownerDocument, 정 = (t) => String(t || "").replace(/\s+/g, ""), 줄 = (t) => [].concat(t || []).join(" ");
-        const 문제 = [];
-        const 제목 = 정((d.querySelector(".se-documentTitle") || {}).innerText);
-        if (!제목.startsWith(정(원.제목).slice(0, 10))) 문제.push("제목이 원고와 다릅니다");
-        const 종류 = (c) => (String(c.className).match(/se-(text|table|quotation|sectionTitle|image|horizontalLine)\b/) || [])[1] || "?";
-        const 부품 = [...d.querySelectorAll(".se-component")].filter((c) => !c.classList.contains("se-documentTitle")).map((c) => ({ c, 종류: 종류(c), 글: 정(c.innerText) }));
-        const 곳 = (앞) => 부품.filter((p) => p.글.includes(앞)).map((p) => p.종류);
-        for (const b of 원.블록) {
-          const 보기 = 줄(b.글).slice(0, 18);
-          if (b.종류 === "소제목") { const g = 곳(정(줄(b.글)).slice(0, 10)); if (!g.includes("sectionTitle")) 문제.push(`소제목 "${보기}" 이 ${g.length ? "소제목 서식이 아니에요" : "빠졌어요"}`); }
-          else if (b.종류 === "인용구") { const g = 곳(정(줄(b.글)).slice(0, 10)); if (!g.includes("quotation")) 문제.push(`인용구 "${보기}" 이 ${g.length ? "인용구가 아니에요" : "빠졌어요"}`); }
-          else if (b.종류 === "문단") { const 첫 = 정([].concat(b.글 || []).find(Boolean)).slice(0, 12); if (!첫) continue; const g = 곳(첫); if (!g.length) 문제.push(`문단 "${보기}" 이 빠졌어요`); else if (!g.includes("text")) 문제.push(`문단 "${보기}" 이 ${g[0] === "table" ? "표" : g[0] === "quotation" ? "인용구" : g[0] === "sectionTitle" ? "소제목" : g[0]} 안에 들어갔어요`); }
+    // 8. 점검 — 원고와 네이버 화면을 대조한다 (2026-09-23 진현님 지시: 다 쓰고 잘못된 곳이 있는지 보고 고치기).
+    // 어긋난 곳은 그 자리만 고친다 (소제목 서식 다시 입히기, 소제목으로 들어간 문단을 본문으로). 글을 지우고 다시 쓰지 않는다 (2026-10-14 진현님 지시).
+    // 고칠 수 없는 곳(빠진 문단·사진 등)은 '확인할곳' 으로 알려 준다.
+    const 사진확인 = !기록.some((r) => r.사진건너뜀);
+    const 요약 = { 제목: 원고.제목, 사진확인, 블록: (원고.블록 || []).map((b) => ({ 종류: b.종류, 글: b.글, 칸: b.칸 })) };
+    const 대조 = () => F.locator("body").first().evaluate((el, 원) => {
+      const d = el.ownerDocument, 정 = (t) => String(t || "").replace(/\s+/g, ""), 줄 = (t) => [].concat(t || []).join(" ");
+      const 문제 = [];
+      const 제목 = 정((d.querySelector(".se-documentTitle") || {}).innerText);
+      if (!제목.startsWith(정(원.제목).slice(0, 10))) 문제.push({ 말: "제목이 원고와 다릅니다" });
+      const 종류 = (c) => (String(c.className).match(/se-(text|table|quotation|sectionTitle|image|horizontalLine)\b/) || [])[1] || "?";
+      const 부품 = [...d.querySelectorAll(".se-component")].filter((c) => !c.classList.contains("se-documentTitle")).map((c) => ({ c, 종류: 종류(c), 글: 정(c.innerText) }));
+      const 곳 = (앞) => 부품.filter((p) => p.글.includes(앞)).map((p) => p.종류);
+      for (const b of 원.블록) {
+        const 보기 = 줄(b.글).slice(0, 18);
+        if (b.종류 === "소제목") { const g = 곳(정(줄(b.글)).slice(0, 10)); if (!g.includes("sectionTitle")) 문제.push(g.length ? { 말: `소제목 "${보기}" 이 소제목 서식이 아니에요`, 고칠: "소제목", 글: 줄(b.글) } : { 말: `소제목 "${보기}" 이 빠졌어요` }); }
+        else if (b.종류 === "인용구") { const g = 곳(정(줄(b.글)).slice(0, 10)); if (!g.includes("quotation")) 문제.push({ 말: `인용구 "${보기}" 이 ${g.length ? "인용구가 아니에요" : "빠졌어요"}` }); }
+        else if (b.종류 === "문단") {
+          const 첫 = 정([].concat(b.글 || []).find(Boolean)).slice(0, 12);
+          if (!첫) continue;
+          const g = 곳(첫);
+          if (!g.length) 문제.push({ 말: `문단 "${보기}" 이 빠졌어요` });
+          else if (!g.includes("text")) 문제.push({ 말: `문단 "${보기}" 이 ${g[0] === "table" ? "표" : g[0] === "quotation" ? "인용구" : g[0] === "sectionTitle" ? "소제목" : g[0]} 안에 들어갔어요`, ...(g.includes("sectionTitle") ? { 고칠: "본문", 줄들: [].concat(b.글 || []) } : {}) });
         }
-        const 표들 = 부품.filter((p) => p.종류 === "table");
-        원.블록.filter((b) => b.종류 === "표").forEach((b, i) => {
-          const t = 표들[i];
-          if (!t) { 문제.push(`표 ${i + 1}개째가 빠졌어요`); return; }
-          const 칸 = [...t.c.querySelectorAll("td")].map((td) => 정(td.innerText));
-          if ((b.칸 || []).some((v, k) => 칸[k] !== 정(v))) 문제.push(`표 ${i + 1}개째 칸 내용이 원고와 달라요`);
-        });
-        if (원.사진확인) { const 원사진 = 원.블록.filter((b) => b.종류 === "사진").length, 화면사진 = 부품.filter((p) => p.종류 === "image").length; if (화면사진 < 원사진) 문제.push(`사진이 ${원사진}장 중 ${화면사진}장만 들어갔어요`); }
-        return { 문제 };
-      }, 요약);
-      적기("점검", { 문제: 결과.문제 || [] });
+      }
+      const 표들 = 부품.filter((p) => p.종류 === "table");
+      원.블록.filter((b) => b.종류 === "표").forEach((b, i) => {
+        const t = 표들[i];
+        if (!t) { 문제.push({ 말: `표 ${i + 1}개째가 빠졌어요` }); return; }
+        const 칸 = [...t.c.querySelectorAll("td")].map((td) => 정(td.innerText));
+        if ((b.칸 || []).some((v, k) => 칸[k] !== 정(v))) 문제.push({ 말: `표 ${i + 1}개째 칸 내용이 원고와 달라요` });
+      });
+      if (원.사진확인) { const 원사진 = 원.블록.filter((b) => b.종류 === "사진").length, 화면사진 = 부품.filter((p) => p.종류 === "image").length; if (화면사진 < 원사진) 문제.push({ 말: `사진이 ${원사진}장 중 ${화면사진}장만 들어갔어요` }); }
+      // 순서 — 원고 블록을 차례로 화면에서 앞으로만 찾아 간다. 있긴 한데 이미 지나온 앞쪽에 있으면 자리가 틀린 것이다 (알려만 준다. 옮기려면 지워야 해서 고치지 않는다).
+      // 2026-10-14 실측: 커서가 앞 소제목으로 가서 표와 다음 문단이 앞쪽에 들어갔는데, 있기만 보는 점검은 '문제 없음' 이라 했다.
+      let 자리 = -1, 순서문제 = 0, 앞블록 = "";
+      const 이름 = { 문단: "문단", 소제목: "소제목", 인용구: "인용구", 표: "표", 사진: "사진", 구분선: "구분선" };
+      const 종류로 = { 표: "table", 사진: "image", 구분선: "horizontalLine" };
+      for (const b of 원.블록) {
+        if (!이름[b.종류]) continue;
+        const 앞 = 정([].concat(b.글 || []).find(Boolean) || "").slice(0, 10);
+        const 글블록 = b.종류 === "문단" || b.종류 === "소제목" || b.종류 === "인용구";
+        if (글블록 && !앞) continue;
+        const 맞음 = (p) => (글블록 ? p.글.includes(앞) : p.종류 === 종류로[b.종류]);
+        // 글은 한 부품에 여러 문단이 들어 있어 같은 부품도 본다. 표·사진·구분선은 따로 부품이라 다음 부품부터 본다.
+        const 다음 = 부품.findIndex((p, k) => (글블록 ? k >= 자리 : k > 자리) && 맞음(p));
+        if (다음 >= 0) { 자리 = 다음; 앞블록 = b.종류 === "사진" ? 앞블록 : `${이름[b.종류]}${글블록 ? ` "${줄(b.글).slice(0, 14)}"` : ""}`; continue; }
+        if (부품.some(맞음) && 순서문제 < 3) {
+          순서문제 += 1;
+          문제.push({ 말: `${이름[b.종류]}${글블록 ? ` "${줄(b.글).slice(0, 14)}" 이` : b.종류 === "표" ? "가" : "이"} 원고 순서와 다른 자리에 있어요${앞블록 ? ` (${앞블록} 다음이어야 해요)` : ""}` });
+        }
+      }
+      return 문제;
+    }, 요약);
+    try {
+      let 문제 = await 대조();
+      const 고친곳 = [];
+      const 고칠것 = 문제.filter((m) => m.고칠);
+      if (고칠것.length) 적기("점검", { 고치기전순서: await 부품순서() });
+      for (const m of 고칠것) {
+        const 됨 = m.고칠 === "소제목" ? await 소제목다시입히기(m.글) : (await 본문으로되돌리기(m.줄들)) > 0;
+        if (됨) 고친곳.push(m.말.replace(/" 이 .*$/, '"') + (m.고칠 === "소제목" ? " → 소제목 서식을 입힘" : " → 본문 서식으로 되돌림"));
+      }
+      if (고칠것.length) {
+        문제 = await 대조();
+        적기("점검", { 고친뒤순서: await 부품순서() });
+        await 저장하기("고친 뒤");
+      }
+      적기("점검", { 문제: 문제.map((m) => m.말), 고친곳 });
     } catch (e) { 적기("점검", { 문제: [], 점검못함: String(e?.message || e).slice(0, 120) }); }
     return 마무리();
   } catch (e) {
@@ -730,9 +995,9 @@ export async function 실행(옵션 = {}) {
       걸린시간초: Math.round((Date.now() - 시작) / 1000),
       기록,
       다음: !성공
-        ? "위 기록의 '실패' 항목을 그대로 코치에게 보내세요."
+        ? "위 기록의 '실패' 항목이 멈춘 곳입니다."
         : 건너뛴것.length
-          ? "글은 다 들어갔고 위 블록만 빠졌습니다. 네이버 화면에서 확인하고, 괜찮으면 직접 '발행' 을 누르세요. 빠진 블록은 코치에게 알려 주세요."
+          ? "글은 다 들어갔고 위 블록만 빠졌습니다. 네이버 화면에서 확인하고 빠진 곳을 채운 뒤, 괜찮으면 직접 '발행' 을 누르세요."
           : "네이버 화면에서 글을 확인하고, 괜찮으면 직접 '발행' 을 누르세요.",
     };
   }
