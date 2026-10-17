@@ -1,8 +1,8 @@
 {
-  "버전": "2026-10-14a",
+  "버전": "2026-10-17a",
   "정지": false,
   "정지안내": "",
-  "커밋": "88781ef64eb2ccdf42dcefc4944d42bbbc1f38e3",
+  "커밋": "fe985ce8a96f37c2faaa542f4eacadc1d0c4e958",
   "파일": [
     "99_절대_건들지마세요_프로그램파일/scripts/adsense-auto-drafts.mjs",
     "99_절대_건들지마세요_프로그램파일/scripts/adsense-create-drafts.mjs",
@@ -33,7 +33,9 @@
     "앱/메킷애센/자료/verification.md",
     "앱/메킷애센/자료/wordpress-changes.md",
     "앱/메킷애센/자료/work-method.md",
-    "앱/승인글.mjs"
+    "앱/설치.mjs",
+    "앱/승인글.mjs",
+    "앱/커스텀.mjs"
   ],
   "수강코드": [
     "weolbumakeitmiddle"
@@ -41,6 +43,7 @@
   "진입": {
     "승인글": "앱/승인글.mjs",
     "네이버": "앱/네이버.mjs",
-    "메킷애센": "앱/메킷애센.mjs"
+    "메킷애센": "앱/메킷애센.mjs",
+    "커스텀": "앱/커스텀.mjs"
   }
 }
