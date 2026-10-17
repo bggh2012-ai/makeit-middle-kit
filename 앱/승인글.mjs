@@ -15,7 +15,7 @@ import {fileURLToPath} from "node:url";
 import {Worker} from "node:worker_threads";
 import {homedir} from "node:os";
 
-export const 버전 = "2026-09-28a";
+export const 버전 = "2026-10-17a";
 
 const 여기 = dirname(fileURLToPath(import.meta.url));            // <임시>/앱
 const 프로그램폴더 = join(여기, "..", "99_절대_건들지마세요_프로그램파일");
@@ -670,14 +670,21 @@ function 대본판(글) {
   const m = /<!-- 키트판 (\d+) -->/.exec(String(글 || ""));
   return m ? Number(m[1]) : String(글 || "").includes("메킷 키트") ? 1 : 0;
 }
+// 내 커스텀 키트(수강생이 자기 깃허브로 복사한 키트)면 폴더 대본만 갈고 전역 대본(원본 키트 것)은 건드리지 않는다 (2026-10-17).
+// 로더가 임시 폴더에 받은 대본의 준비 코드 저장소 줄을 이 키트의 저장소로 맞춰 두므로, 그 줄을 보면 어느 키트인지 안다.
+const 공식저장소 = "makeit-edu/makeit-middle-kit";
+const 저장소줄 = /let 저장소 ?= ?"([A-Za-z0-9][A-Za-z0-9-]*\/[A-Za-z0-9._-]+)";/;
 async function 대본최신화(작업폴더) {
   try {
     const 대본 = await readFile(join(여기, "AGENTS.md"), "utf8");
+    const 저장소 = 저장소줄.exec(대본)?.[1] || 공식저장소;
+    const 커스텀 = 저장소.toLowerCase() !== 공식저장소;
     if (!대본.includes("메킷 키트")) return "건너뜀";
     let 폴더대본 = "";
     try { 폴더대본 = await readFile(join(작업폴더, "AGENTS.md"), "utf8"); } catch {}
     if (대본판(폴더대본) > 대본판(대본)) return "더 높은 판이 깔려 있어 그대로 둠";
     await writeFile(join(작업폴더, "AGENTS.md"), 대본, "utf8");
+    if (커스텀) return "갱신 (내 커스텀 키트 — 전역 대본은 원본 그대로)";
     const 시작표 = "<!-- 메킷키트 시작 (설치.mjs 가 관리. 손으로 고치지 마세요) -->";
     const 끝표 = "<!-- 메킷키트 끝 -->";
     const 전역파일 = join(homedir(), ".codex", "AGENTS.md");

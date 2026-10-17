@@ -2,6 +2,7 @@
 <!-- 키트판 4 -->
 
 이 대본은 **작업 폴더 안에 `애드센스 승인글` 폴더가 있을 때만** 따른다. 없으면 무시하고 평소대로 한다.
+단, 이 파일을 깃허브 저장소 안의 `앱/AGENTS.md` 로 읽고 있다면(옆에 `로더.mjs`·`승인글.mjs` 가 있다 — 코덱스 웹에서 저장소를 고치는 중) 이 대본은 따르지 않고 저장소 맨 위 `AGENTS.md` 의 "이 저장소를 고칠 때" 규칙을 따른다.
 
 이 키트로 하는 일은 세 가지다. **수강생의 말로 하나만 고른다.**
 
@@ -10,6 +11,9 @@
 | 승인글, 애드센스, 자동화 시작, 글 만들어줘, 제목 파일·제목 목록을 줌 | 애드센스 승인글 (워드프레스 임시글) | "승인글" |
 | 네이버, 블로그, 네이버 글 | 네이버 블로그 글 (크롬 임시저장) | "네이버 글" |
 | 메킷애센, 플러그인 고쳐·수정·업그레이드, 메킷애센 ZIP 을 줌 | 받은 메킷애센 플러그인 고치기 | "메킷애센 고치기" |
+| 내 커스텀 키트 만들어줘, 내 키트 만들기, 키트를 내 깃허브로 복사(포크) | 내 깃허브에 커스텀 키트 만들기 | "내 커스텀 키트 만들기" |
+
+**내 커스텀 키트:** 아래 "준비 코드" 의 `let 저장소` 줄 따옴표 안이 `makeit-edu/makeit-middle-kit` 가 아니면, 이 폴더는 수강생이 자기 깃허브로 복사한 **내 커스텀 키트**다. 맨 아래 "내 커스텀 키트일 때" 규칙도 따른다. 작업 폴더의 AGENTS.md 와 전역 AGENTS.md 의 준비 코드 저장소가 다르면 **작업 폴더 것**을 쓴다.
 
 설치·키 설정·진단은 셋이 같이 쓴다. 설치 문장만 받았거나 수강 코드·sk- 키·사이트 주소가 든 글·파일을 받으면 다른 질문(주제·말투·분량 등)을 하지 말고 곧바로 아래 순서를 시작한다.
 
@@ -62,7 +66,7 @@ Windows: ChatGPT 앱 폴더 안의 `node.exe` 를 찾아(`Get-ChildItem -Recurse
 예 — 수강 코드 저장을 두 번째 길로:
 
 ```bash
-cd "«작업 폴더»" && "/Applications/ChatGPT.app/Contents/Resources/cua_node/bin/node" --input-type=module -e 'let fs=await import("node:fs/promises");let os=await import("node:os");let path=await import("node:path");let 작업폴더=path.resolve(".");let 임시=await fs.mkdtemp(path.join(os.tmpdir(),"makeit-loader-"));let r=await fetch(atob("aHR0cHM6Ly9yYXcuZ2l0aHVidXNlcmNvbnRlbnQuY29tL21ha2VpdC1lZHUvbWFrZWl0LW1pZGRsZS1raXQvbWFpbi8lRUMlOTUlQjEvJUVCJUExJTlDJUVCJThEJTk0Lm1qcw==")+"?t="+Date.now());await fs.writeFile(path.join(임시,"로더.mjs"),await r.text());let 로더=await import("file://"+path.join(임시,"로더.mjs")+"?t="+Date.now());let 앱=await 로더.불러오기({작업폴더});if(앱.정지){console.log(JSON.stringify(앱));process.exit(0)};console.log(JSON.stringify(await 앱.승인글.수강코드저장({작업폴더,코드:"«코드»",수강코드목록:앱.수강코드목록})));await 앱.정리();'
+cd "«작업 폴더»" && "/Applications/ChatGPT.app/Contents/Resources/cua_node/bin/node" --input-type=module -e 'let fs=await import("node:fs/promises");let os=await import("node:os");let path=await import("node:path");let 작업폴더=path.resolve(".");let 저장소="makeit-edu/makeit-middle-kit";let 임시=await fs.mkdtemp(path.join(os.tmpdir(),"makeit-loader-"));let r=await fetch(atob("aHR0cHM6Ly9yYXcuZ2l0aHVidXNlcmNvbnRlbnQuY29tLw==")+저장소+atob("L21haW4vJUVDJTk1JUIxLyVFQiVBMSU5QyVFQiU4RCU5NC5tanM=")+"?t="+Date.now());if(!r.ok)r=await fetch(atob("aHR0cHM6Ly9yYXcuZ2l0aHVidXNlcmNvbnRlbnQuY29tL21ha2VpdC1lZHUvbWFrZWl0LW1pZGRsZS1raXQvbWFpbi8lRUMlOTUlQjEvJUVCJUExJTlDJUVCJThEJTk0Lm1qcw==")+"?t="+Date.now());await fs.writeFile(path.join(임시,"로더.mjs"),await r.text());let 로더=await import("file://"+path.join(임시,"로더.mjs")+"?t="+Date.now());let 앱=await 로더.불러오기({작업폴더,저장소});if(앱.정지){console.log(JSON.stringify(앱));process.exit(0)};console.log(JSON.stringify(await 앱.승인글.수강코드저장({작업폴더,코드:"«코드»",수강코드목록:앱.수강코드목록})));await 앱.정리();'
 ```
 
 글 만들기처럼 오래 걸리는 것도 같은 방식이다 (한 번에 글 1개, 2~4분). **셸 명령은 끝나서 출력이 나올 때까지 기다린다 (최대 10분).** 출력이 아직 없다고 같은 명령을 다시 실행하거나, 그 사이에 진단 같은 다른 명령을 돌리지 않는다. 결과가 `"이미 하는 중"` 이면 앞 명령이 끝나기를 기다린다.
@@ -76,11 +80,13 @@ cd "«작업 폴더»" && "/Applications/ChatGPT.app/Contents/Resources/cua_node
 ```js
 let fs = await import("node:fs/promises"); let os = await import("node:os"); let path = await import("node:path");
 let 작업폴더 = path.resolve(".");
+let 저장소 = "makeit-edu/makeit-middle-kit";
 let 임시 = await fs.mkdtemp(path.join(os.tmpdir(), "makeit-loader-"));
-let r = await fetch(atob("aHR0cHM6Ly9yYXcuZ2l0aHVidXNlcmNvbnRlbnQuY29tL21ha2VpdC1lZHUvbWFrZWl0LW1pZGRsZS1raXQvbWFpbi8lRUMlOTUlQjEvJUVCJUExJTlDJUVCJThEJTk0Lm1qcw==") + "?t=" + Date.now());
+let r = await fetch(atob("aHR0cHM6Ly9yYXcuZ2l0aHVidXNlcmNvbnRlbnQuY29tLw==") + 저장소 + atob("L21haW4vJUVDJTk1JUIxLyVFQiVBMSU5QyVFQiU4RCU5NC5tanM=") + "?t=" + Date.now());
+if (!r.ok) r = await fetch(atob("aHR0cHM6Ly9yYXcuZ2l0aHVidXNlcmNvbnRlbnQuY29tL21ha2VpdC1lZHUvbWFrZWl0LW1pZGRsZS1raXQvbWFpbi8lRUMlOTUlQjEvJUVCJUExJTlDJUVCJThEJTk0Lm1qcw==") + "?t=" + Date.now());
 await fs.writeFile(path.join(임시, "로더.mjs"), await r.text());
 let 로더 = await import("file://" + path.join(임시, "로더.mjs") + "?t=" + Date.now());
-let 앱 = await 로더.불러오기({ 작업폴더 });
+let 앱 = await 로더.불러오기({ 작업폴더, 저장소 });
 nodeRepl.write(JSON.stringify(앱.정지 ? 앱 : { 버전: 앱.버전, ...(await 앱.승인글.준비({ 작업폴더, 수강코드목록: 앱.수강코드목록 })) }, null, 1));
 ```
 
@@ -431,6 +437,68 @@ nodeRepl.write(JSON.stringify(await 앱.메킷애센.ZIP만들기({ 작업폴더
 - 플러그인 업로드·교체는 수강생이 직접 한다. 네가 워드프레스에 올리지 않는다.
 - `결과: "막힘"` → ④ 처럼 고치고 다시 만든다.
 - 수강생이 더 고치고 싶다고 하면 ③ 부터 (다음 ZIP 은 버전이 한 칸 더 올라간다).
+
+## 내 커스텀 키트 만들기 — "내 커스텀 키트 만들어줘", "내 키트 만들기", "내 깃허브로 복사"
+
+수강생 깃허브에 이 키트의 복사본(포크)을 만들고, 그 복사본으로 도는 새 폴더를 만든다. **원래 폴더와 원본 키트는 그대로 둔다.**
+**코드는 수강생 깃허브에만 있다. 이 PC 에 코드를 내려받거나 고치지 않는다.** 고치는 것은 온라인(코덱스 웹)에서 한다.
+수강생이 먼저 말했을 때만 한다. 권하지 않는다. 준비 코드의 저장소가 이미 `makeit-edu/makeit-middle-kit` 가 아니면 「지금 이 폴더가 이미 내 커스텀 키트예요 (깃허브 «저장소»).」 라고만 한다.
+
+**사전 승인:** 수강생이 이 말을 했으므로, 크롬에서 깃허브의 포크 화면을 열고 **Create fork** 를 누르는 것과 새 폴더를 만드는 것은 승인된 것이다. 깃허브 로그인·가입은 수강생이 한다.
+
+### ① 크롬 연결과 포크 — `앱` 이 없으면 위 "준비 코드" 를 먼저 실행하고, 이어서 이것을 실행한다
+
+```js
+let 크롬 = await 앱.커스텀.크롬확장();
+let agent = 크롬 ? await (await import(크롬)).setupBrowserRuntime() : null;
+nodeRepl.write(JSON.stringify(await 앱.커스텀.만들기({ agent, 작업폴더 }), null, 1));
+```
+
+- `결과: "로그인 필요"` →
+  > 크롬에서 깃허브(github.com)에 로그인해 주세요. 계정이 없으면 github.com 에서 무료로 가입하면 돼요. 로그인했으면 "됐어요" 라고 해 주세요.
+  "됐어요" 류의 답이 오면 ① 을 다시 실행한다.
+- `결과: "직접"` (화면에서 버튼을 못 눌렀을 때) →
+  > 크롬에서 이 주소를 열고 초록색 **Create fork** 버튼을 눌러 주세요: «주소»
+  > 누르고 나서 "만들었어요" 라고 해 주세요.
+  결과에 `안내` 가 있으면 첫 줄 앞에 그 한 줄을 먼저 말한다. `이름겹침: true` 면 둘째 줄 앞에 「내 깃허브에 같은 이름(makeit-middle-kit)의 저장소가 이미 있어요. 그 화면의 **Repository name** 칸을 `makeit-middle-kit-my` 처럼 바꾼 뒤 누르세요.」 를 넣는다.
+  답이 오면 같은 코드에 `확인만: true` 를 붙여 실행한다 (agent 가 없어졌으면 ① 의 앞 두 줄부터):
+  ```js
+  nodeRepl.write(JSON.stringify(await 앱.커스텀.만들기({ agent, 작업폴더, 확인만: true }), null, 1));
+  ```
+- `결과: "옛 복사본"` (예전에 만들어 둔 복사본이 옛 판일 때) →
+  > 예전에 만들어 둔 내 복사본이 있어요: «저장소주소»
+  > 그 화면에서 **Sync fork** → **Update branch** 를 눌러 원본의 새 내용을 받아 주세요. 다 됐으면 "됐어요" 라고 해 주세요.
+  > ('Discard' 가 들어간 버튼은 누르지 마세요. 내가 고친 내용이 지워져요.)
+  답이 오면 ① 을 다시 실행한다.
+- `결과: "됨"` → ② 로.
+- `결과: "멈춤"` → 「**«원인»**. «할일»」 로 말하고 기다린다.
+
+### ② 다 됐을 때 — 이 틀로 말한다 (값은 결과에서)
+
+> 내 깃허브에 커스텀 키트를 만들었어요: «저장소주소»
+> 이 컴퓨터에는 «폴더» 폴더를 만들었어요. (키 설정은 그대로 옮겨 놨어요)
+> - 원래 키트는 지금 이 폴더에서 그대로 쓰면 돼요.
+> - 내 커스텀 키트를 쓰려면 코덱스에서 새 채팅을 열고 작업 폴더로 «폴더» 를 고른 뒤 평소처럼 말하세요.
+> - 키트를 고치는 건 온라인에서만 해요: chatgpt.com/codex 에서 내 저장소 «저장소» 를 고르고 바꾸고 싶은 걸 말하세요. 코덱스가 고치면 'Create PR'(PR 만들기) → 깃허브에서 'Merge' 를 누르면 다음 실행부터 바로 바뀌어요.
+
+`새로만듦: false` 면 첫 줄을 「이미 만들어 둔 내 커스텀 키트가 있어요: «저장소주소»」 로 바꾼다. `설정옮김: false` 면 괄호 문장을 뺀다.
+
+## 내 커스텀 키트일 때 — 준비 코드의 저장소가 `makeit-edu/makeit-middle-kit` 가 아닐 때
+
+이 폴더의 프로그램은 수강생 깃허브 «저장소» 의 최신 main 에서 실행할 때마다 받아 온다. 승인글·네이버·메킷애센은 위 대본 그대로 한다.
+
+- **키트(프로그램) 고치기는 이 PC 에서 하지 않는다.** 저장소를 내려받거나(git clone) 파일을 만들거나 고치지 않는다. 수강생이 기능을 바꿔 달라고 하면(예: "예약 시각을 바꿔줘", "제목을 카테고리별로 돌아가며 써줘") 이렇게만 말한다:
+  > 키트 고치기는 온라인에서 해요. chatgpt.com/codex 에서 내 저장소 «저장소» 를 고르고 이렇게 말하세요:
+  > "«수강생이 바꾸고 싶다고 한 내용»"
+  > 코덱스가 고치면 'Create PR'(PR 만들기) → 깃허브에서 'Merge' 를 누르세요. 그러면 이 폴더에서 다음 실행부터 바로 바뀌어요.
+  > (처음이면 chatgpt.com/codex 에서 깃허브 연결부터 해요.)
+- 원본 키트의 새 내용을 받고 싶다고 하면:
+  > 깃허브의 내 저장소 화면(https://github.com/«저장소»)에서 **Sync fork** → **Update branch** 를 누르세요.
+  > 'Update branch' 대신 충돌(conflict) 이야기가 나오면 아무것도 누르지 말고 닫으세요. 특히 'Discard' 가 들어간 버튼은 내가 고친 내용을 지워요. 원본의 새 기능은 원래 폴더(원본 키트)에서 언제든 쓸 수 있어요.
+- 오류가 나면 아래 "오류가 났을 때" 대로 하고, 끝에 한 줄을 붙인다:
+  > 원래 폴더(원본 키트)에서는 같은 일이 되면, 내가 고친 부분 때문일 수 있어요. 코덱스 웹에서 그 변경을 되돌리면 돼요.
+- 키·비밀번호를 깃허브에 올리거나 코드에 넣지 않는다. 키는 지금처럼 키설정.txt 로만 넣는다.
+- "내 커스텀 키트 만들어줘" 라고 하면 「지금 이 폴더가 이미 내 커스텀 키트예요 (깃허브 «저장소»).」
 
 ## 진단 — "진단", "이상해요", "안 돼요"
 

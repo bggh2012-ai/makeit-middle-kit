@@ -12,7 +12,7 @@ sha=$(git rev-parse HEAD)
 python3 - "$sha" "$VER" <<'PY'
 import json,sys,os
 sha,ver=sys.argv[1],sys.argv[2]
-files=["앱/승인글.mjs","앱/AGENTS.md","앱/네이버.mjs","앱/메킷애센.mjs"]
+files=["앱/승인글.mjs","앱/AGENTS.md","앱/네이버.mjs","앱/메킷애센.mjs","앱/커스텀.mjs","앱/설치.mjs"]
 for d,exts in [("앱/네이버",(".mjs",".json")),("앱/메킷애센/자료",(".md",))]:
     for n in sorted(os.listdir(d)):
         if n.endswith(exts): files.append(d+"/"+n)
@@ -21,7 +21,7 @@ for root,_,names in os.walk("99_절대_건들지마세요_프로그램파일/scr
         if n.endswith(".mjs"): files.append(os.path.join(root,n).replace(os.sep,"/"))
 m=json.load(open("앱/목록.json",encoding="utf8"))
 import unicodedata
-m.update({"버전":ver,"커밋":sha,"진입":{"승인글":"앱/승인글.mjs","네이버":"앱/네이버.mjs","메킷애센":"앱/메킷애센.mjs"},"파일":sorted(set(unicodedata.normalize("NFC",f) for f in files))})
+m.update({"버전":ver,"커밋":sha,"진입":{"승인글":"앱/승인글.mjs","네이버":"앱/네이버.mjs","메킷애센":"앱/메킷애센.mjs","커스텀":"앱/커스텀.mjs"},"파일":sorted(set(unicodedata.normalize("NFC",f) for f in files))})
 json.dump(m,open("앱/목록.json","w",encoding="utf8"),ensure_ascii=False,indent=2)
 open("앱/목록.json","a").write("\n")
 print("목록:",ver,sha[:8],len(files),"파일")

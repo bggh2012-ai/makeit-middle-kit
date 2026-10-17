@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="메킷 키트를 내 깃허브로 복사해 내 마음대로 고쳐 쓰는 '내 커스텀 키트' 안내서. 원본 키트는 그대로 둡니다.">
+  <meta name="color-scheme" content="light dark">
+  <meta name="robots" content="noindex">
+  <title>내 커스텀 키트 — 월부월백 중급반</title>
+  <link rel="stylesheet" href="../week3/style.css">
+</head>
+<body>
+<a class="skip" href="#steps">순서로 바로가기</a>
+<main class="wrap">
+  <header>
+    <p class="eyebrow">월부월백 중급반 · 내 커스텀 키트</p>
+    <h1>메킷 키트를<br>내 것으로 고쳐 쓰기</h1>
+    <p>키트를 <b>내 깃허브로 복사</b>해서, 내가 원하는 대로 고쳐 씁니다.<br><b>원래 키트는 그대로</b> 둡니다. 둘 다 계속 쓸 수 있어요.</p>
+  </header>
+
+  <section class="prep" aria-labelledby="prep-title">
+    <h2 id="prep-title">먼저 챙길 것</h2>
+    <ul>
+      <li><b>1주차부터 쓰던 작업 폴더</b> — 설치·키 설정이 끝난 폴더 (원본 키트)</li>
+      <li><b>크롬 + 코덱스 크롬 확장</b> — 네이버 글쓰기 때 쓰던 그대로</li>
+      <li><b>깃허브 계정</b> — 없으면 <a href="https://github.com/signup">github.com</a> 에서 무료로 직접 가입하세요 (코덱스가 대신 가입하지 않아요)</li>
+      <li><b>chatgpt.com/codex</b> — 키트를 고칠 때 쓰는 코덱스 웹 (ChatGPT Plus 이상)</li>
+    </ul>
+  </section>
+
+  <aside class="note warn intro-note"><b>고치는 건 온라인에서만 합니다</b>내 컴퓨터에서는 키트 코드를 내려받거나 고치지 않습니다. 코드는 <b>내 깃허브</b>에만 있고, 고치는 건 <b>코덱스 웹(chatgpt.com/codex)</b>에서 합니다. 내 컴퓨터의 코덱스 앱은 지금처럼 <b>쓰기만</b> 합니다.</aside>
+
+  <div class="steps" id="steps">
+    <section class="step" id="step-1" aria-labelledby="title-1">
+      <div class="num" aria-hidden="true">1</div><div class="body">
+        <h2 id="title-1">원래 폴더에서 이 한 줄</h2>
+        <p>ChatGPT 앱 → <b>Codex</b> → 새 채팅 → 작업 폴더로 <b>1주차부터 쓰던 폴더</b>를 고르고, 아래 문장을 붙여넣으세요.</p>
+        <div class="prompt"><p id="make-prompt">내 커스텀 키트 만들어줘</p><button type="button" data-copy="make-prompt">문장 복사</button></div>
+        <aside class="note ok"><b>크롬이 저절로 움직여요</b>코덱스가 크롬에서 깃허브의 '복사(포크)' 화면을 열고 초록색 <b>Create fork</b> 버튼을 누릅니다. 그동안 마우스·키보드는 잠깐 쉬세요.</aside>
+      </div>
+    </section>
+
+    <section class="step" id="step-2" aria-labelledby="title-2">
+      <div class="num" aria-hidden="true">2</div><div class="body">
+        <h2 id="title-2">깃허브 로그인 · Create fork</h2>
+        <p>깃허브 로그인이 안 돼 있으면 코덱스가 <b>“크롬에서 깃허브에 로그인해 주세요”</b> 라고 합니다. 크롬에 열린 깃허브 화면에서 <b>직접</b> 로그인하고 <span class="type">됐어요</span> 라고 답하세요.</p>
+        <aside class="note warn"><b>“Create fork 버튼을 눌러 주세요” 라고 하면</b>코덱스가 버튼을 못 누른 경우입니다. 알려 준 주소의 화면에서 초록색 <b>Create fork</b> 를 직접 누르고 <span class="type">만들었어요</span> 라고 답하세요. 같은 이름 저장소가 이미 있다고 하면 <b>Repository name</b> 칸을 <span class="path">makeit-middle-kit-my</span> 처럼 바꾼 뒤 누르세요.</aside>
+        <aside class="note warn"><b>“예전에 만들어 둔 복사본이 있어요” 라고 하면</b>예전에 직접 복사(포크)해 둔 저장소가 옛 판입니다. 그 화면에서 <b>Sync fork → Update branch</b> 를 누르고 <span class="type">됐어요</span> 라고 답하세요.</aside>
+      </div>
+    </section>
+
+    <section class="step" id="step-3" aria-labelledby="title-3">
+      <div class="num" aria-hidden="true">3</div><div class="body">
+        <h2 id="title-3">새 폴더 ‘메킷 커스텀 키트’ 로 쓰기</h2>
+        <p>다 되면 원래 폴더 <b>옆에</b> <span class="path">메킷 커스텀 키트</span> 폴더가 생깁니다. 키 설정(수강 코드·OpenAI 키·워드프레스 연결)은 그대로 옮겨 놓아요.</p>
+        <div class="file-flow" aria-label="원래 폴더는 원본 키트, 새 폴더는 내 커스텀 키트"><div><span class="file-tag">원본</span><b>원래 작업 폴더</b><small>지금까지처럼 원본 키트</small></div><span class="arrow" aria-hidden="true">·</span><div><span class="file-tag blue">내 것</span><b>메킷 커스텀 키트</b><small>내 깃허브 저장소로 도는 키트</small></div></div>
+        <p>내 커스텀 키트를 쓰려면 코덱스에서 <b>새 채팅</b> → 작업 폴더로 <span class="path">메킷 커스텀 키트</span> 를 고르고 평소처럼 말하세요 (<span class="type">승인글 자동화 시작해</span>, <span class="type">네이버 글 써줘</span> …).</p>
+      </div>
+    </section>
+
+    <section class="step" id="step-4" aria-labelledby="title-4">
+      <div class="num" aria-hidden="true">4</div><div class="body">
+        <h2 id="title-4">고치기 — 코덱스 웹에서</h2>
+        <p>컴퓨터 브라우저로 <a href="https://chatgpt.com/codex">chatgpt.com/codex</a> 에 들어갑니다.</p>
+        <ol>
+          <li><b>처음 한 번:</b> 깃허브 연결(Connect GitHub) → 내 깃허브 계정 허용 → 저장소 <span class="path">내아이디/makeit-middle-kit</span> 를 고릅니다.</li>
+          <li>저장소를 고른 채로 <b>바꾸고 싶은 것 한 가지</b>를 적습니다.</li>
+          <li>코덱스가 고친 내용을 보여 주면 <b>Create PR</b>(PR 만들기)를 누릅니다.</li>
+        </ol>
+        <div class="prompt"><p id="change-prompt">네이버 글 마무리 문단 끝에 "이웃 추가하시면 새 글을 바로 받아 보실 수 있어요" 한 문장을 늘 넣어줘. 다른 건 바꾸지 마.</p><button type="button" data-copy="change-prompt">예시 문장 복사</button></div>
+        <aside class="note ok"><b>무엇을 바꿀지 모르겠다면</b><span class="type">이 키트에서 내가 바꿀 만한 것 세 가지를 쉽게 제안해줘. 아직 고치지 마.</span> 라고 먼저 물어보세요.</aside>
+        <aside class="note stop"><b>키·비밀번호는 절대 적지 마세요</b>내 저장소는 공개입니다. OpenAI 키·워드프레스 비밀번호는 지금처럼 내 컴퓨터의 키설정.txt 로만 넣습니다.</aside>
+      </div>
+    </section>
+
+    <section class="step" id="step-5" aria-labelledby="title-5">
+      <div class="num" aria-hidden="true">5</div><div class="body">
+        <h2 id="title-5">깃허브에서 Merge</h2>
+        <p>PR 화면(깃허브)에서 <b>Merge pull request → Confirm merge</b> 를 누르면 끝입니다. <span class="path">메킷 커스텀 키트</span> 폴더에서 <b>다음 실행부터 바로</b> 바뀐 대로 돕니다 (켜 둔 채팅도 2분 안에 바뀝니다).</p>
+        <aside class="note warn"><b>마음에 안 들면 되돌리기</b>깃허브의 그 PR 화면에서 <b>Revert</b> → 새로 생긴 PR 을 <b>Merge</b> 하면 원래대로 돌아갑니다. 코덱스 웹에 <span class="type">방금 바꾼 걸 되돌려줘</span> 라고 해도 됩니다.</aside>
+      </div>
+    </section>
+
+    <section class="step" id="step-6" aria-labelledby="title-6">
+      <div class="num" aria-hidden="true">6</div><div class="body">
+        <h2 id="title-6">원본 키트의 새 내용 받기</h2>
+        <p>원본 키트가 좋아지면 원래 폴더에는 <b>저절로</b> 들어옵니다. 내 커스텀 키트에도 넣고 싶으면 깃허브의 내 저장소 화면에서 <b>Sync fork → Update branch</b> 를 누르세요.</p>
+        <aside class="note stop"><b>‘Discard’ 버튼은 누르지 마세요</b>충돌(conflict) 이야기가 나오면 아무것도 누르지 말고 닫으세요. ‘Discard’ 는 내가 고친 내용을 지웁니다. 원본의 새 기능은 원래 폴더에서 언제든 쓸 수 있어요.</aside>
+      </div>
+    </section>
+  </div>
+
+  <section class="tail" aria-labelledby="commands-title">
+    <h2 id="commands-title">코덱스에게 하는 말</h2>
+    <div class="cmds"><div class="cmd"><b>내 커스텀 키트 만들어줘</b><span>원래 폴더에서 한 번 (1번)</span></div><div class="cmd"><b>평소 말 그대로</b><span>‘메킷 커스텀 키트’ 폴더의 새 채팅에서 — 승인글·네이버·메킷애센</span></div><div class="cmd"><b>바꾸고 싶은 것 한 가지</b><span>코덱스 웹(chatgpt.com/codex)에서만 (4번)</span></div></div>
+    <h2>막혔을 때</h2>
+    <div class="cmds"><div class="cmd"><b>내 컴퓨터 코덱스에게 고쳐 달라고 했어요</b><span>“키트 고치기는 온라인에서 해요” 라고 답합니다. 4번대로 코덱스 웹에서 하세요.</span></div><div class="cmd"><b>고친 뒤 오류가 나요</b><span>원래 폴더에서 같은 일이 되면 내가 고친 부분 때문입니다. 5번의 Revert 로 되돌리세요.</span></div><div class="cmd"><b>‘내 커스텀 키트 저장소를 읽지 못했어요’</b><span>깃허브에서 내 저장소 이름을 바꿨거나 지웠는지 확인하세요. 다시 만들려면 원래 폴더에서 1번부터.</span></div><div class="cmd"><b>코덱스 웹에 내 저장소가 안 보여요</b><span>깃허브 연결 화면에서 내 저장소(makeit-middle-kit) 접근을 허용했는지 확인하세요.</span></div></div>
+
+    <details class="teacher"><summary>강사용 — 어떻게 도는지 · 주의할 점 · 검증 범위</summary>
+      <p><b>어떻게 도는지.</b> ‘내 커스텀 키트 만들어줘’ → 코덱스 크롬 확장으로 <span class="path">github.com/makeit-edu/makeit-middle-kit/fork</span> 를 열어 Create fork 를 누름(못 누르면 수강생이 누름) → 원래 폴더 옆에 ‘메킷 커스텀 키트’ 폴더를 만들고 대본(AGENTS.md)의 준비 코드 저장소 줄을 수강생 저장소로 바꿔 깔고, <span class="path">애드센스 승인글/00_설정/키트저장소.txt</span> 표시를 남김 → 설정.json 복사. 그 폴더는 실행할 때마다 수강생 저장소 <b>main 의 최신 커밋</b>을 받아 씁니다(원본은 목록.json 고정 커밋). 전역 ~/.codex/AGENTS.md(원본 대본)는 건드리지 않습니다.</p>
+      <p><b>주의.</b> ① 포크는 공개 저장소라 누구나 코드를 볼 수 있고, 원본 저장소의 Forks 목록에 서로 보입니다(키는 깃허브에 없음). ② 원본 목록.json 의 <b>정지 스위치로 포크는 멈출 수 없습니다</b> — 각자 사본입니다. ③ 원본 업데이트는 Sync fork 를 눌러야 들어갑니다. ④ 수강생이 고친 코드로 난 오류는 원래 폴더에서 같은 일이 되는지로 가립니다. ⑤ 코덱스 웹이 저장소를 고칠 때 따르는 규칙은 저장소 맨 위 AGENTS.md ‘이 저장소를 고칠 때’ 에 있습니다.</p>
+      <p><b>검증 범위 (2026-10-17).</b> 비공개 시험 저장소(makeit-edu/kit-custom-test)와 가짜 홈 폴더로 31개 항목 통과: 커스텀 설치·폴더 대본 저장소 줄·표시 파일·전역 대본 안 건드림·최신 main 커밋 사용·표시 파일 우선·원본 재설치 시 표시 삭제, 포크 만들기 흐름(가짜 크롬: 로그인 필요·옛 복사본·이름 겹침·버튼 꺼짐·화면 밖 버튼·새 폴더·설정 복사), 병합 후 켜 둔 채팅 129초 만에 새 코드. <b>아직 확인 전:</b> 로그인된 진짜 깃허브에서 Create fork 누르기, 코덱스 웹 화면 이름(Connect GitHub·Create PR 은 바뀔 수 있음), Windows.</p>
+      <p><a href="https://github.com/makeit-edu/makeit-middle-kit">원본 저장소</a></p>
+    </details>
+  </section>
+  <footer>메킷 키트 · 월부월백 중급반 · 내 커스텀 키트</footer>
+</main>
+<div id="notice" role="status" aria-live="polite"></div>
+<script>
+(() => {
+  const notice = document.getElementById('notice');
+  let timer;
+  const announce = (message) => {
+    notice.textContent = message;
+    notice.classList.add('visible');
+    clearTimeout(timer);
+    timer = setTimeout(() => notice.classList.remove('visible'), 3500);
+  };
+  document.querySelectorAll('[data-copy]').forEach((button) => {
+    button.addEventListener('click', async () => {
+      const target = document.getElementById(button.dataset.copy);
+      try {
+        await navigator.clipboard.writeText(target.textContent.trim());
+        announce('복사했어요. 코덱스 채팅창에 붙여넣으세요.');
+      } catch {
+        const selection = window.getSelection();
+        const range = document.createRange();
+        range.selectNodeContents(target);
+        selection.removeAllRanges();
+        selection.addRange(range);
+        announce('문장을 선택했어요. 직접 복사해 주세요.');
+      }
+    });
+  });
+})();
+</script>
+</body>
+</html>

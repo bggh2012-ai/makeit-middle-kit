@@ -3,12 +3,21 @@
 //   2) 전역 ~/.codex/AGENTS.md 에 같은 대본 삽입   ← 코덱스 앱이 폴더 AGENTS.md 를 안 읽을 때가 있어서 (2026-09-17 실측)
 //   3) 데이터 폴더 만들기 (애드센스 승인글/00_설정 · 01_제목넣는곳 · 02_생성결과_확인용)
 // 프로그램 파일은 저장하지 않는다. 프로그램은 실행할 때마다 GitHub 에서 읽는다 (앱/로더.mjs).
+//
+// 내 커스텀 키트 (2026-10-17): 저장소 를 넘기면 그 저장소(수강생이 자기 깃허브로 복사한 키트)의 대본을 받아
+// 준비 코드의 저장소 줄을 그 이름으로 맞춰 '그 폴더에만' 저장하고, 폴더에 표시(00_설정/키트저장소.txt)를 남긴다.
+// 전역 ~/.codex/AGENTS.md 의 원본 대본은 건드리지 않는다 (원본 키트는 원래 폴더에서 그대로 쓰게).
 
 import {mkdir, readFile, readdir, rm, writeFile} from "node:fs/promises";
 import {homedir} from "node:os";
 import {join} from "node:path";
 
-const 저장소 = "makeit-edu/makeit-middle-kit";
+const 공식저장소 = "makeit-edu/makeit-middle-kit";
+const 저장소꼴 = /^[A-Za-z0-9][A-Za-z0-9-]{0,38}\/[A-Za-z0-9._-]{1,100}$/;
+// 대본의 준비 코드 속 저장소 줄(`let 저장소 = "…";`)을 이 키트의 저장소로 맞춘다. 원본이면 그대로다.
+export function 저장소묶기(대본, 저장소) {
+  return String(대본).replace(/let 저장소 ?= ?"[A-Za-z0-9][A-Za-z0-9-]*\/[A-Za-z0-9._-]+";/g, (줄) => 줄.replace(/"[^"]*"/, `"${저장소}"`));
+}
 const 시작표 = "<!-- 메킷키트 시작 (설치.mjs 가 관리. 손으로 고치지 마세요) -->";
 const 끝표 = "<!-- 메킷키트 끝 -->";
 // 대본 판 번호. 지금은 승인글·네이버·메킷애센을 합친 판 4. 더 높은 판이 깔려 있으면 낮은 판으로 덮지 않는다 (같은 판이면 새것으로).
@@ -17,7 +26,7 @@ function 대본판(글) {
   return m ? Number(m[1]) : String(글 || "").includes("메킷 키트") ? 1 : 0;
 }
 
-async function 대본받기() {
+async function 대본받기(저장소) {
   const 파일 = "앱/AGENTS.md";
   const 경로 = 파일.split("/").map(encodeURIComponent).join("/");
   try {
@@ -32,18 +41,25 @@ async function 대본받기() {
   return r2.text();
 }
 
-export async function 설치({작업폴더}) {
+export async function 설치({작업폴더, 저장소 = 공식저장소}) {
   if (!작업폴더) throw new Error("작업폴더 가 필요합니다");
+  저장소 = String(저장소 || 공식저장소).trim().replace(/^https?:\/\/github\.com\//, "").replace(/\.git$/, "").replace(/\/+$/, "");
+  if (!저장소꼴.test(저장소)) return {폴더: 작업폴더, 기록: {}, 결과: `저장소 이름이 이상해요(${저장소}). '깃허브아이디/저장소이름' 꼴이어야 해요.`, 다음: ""};
+  const 커스텀 = 저장소.toLowerCase() !== 공식저장소;
   const 기록 = {};
-  const 대본 = await 대본받기();
+  let 대본;
+  try { 대본 = 저장소묶기(await 대본받기(저장소), 저장소); }
+  catch (e) { return {폴더: 작업폴더, 기록, 결과: 커스텀 ? `깃허브의 내 커스텀 키트(${저장소})에서 대본을 받지 못했어요. 저장소 이름과 공개 여부를 확인하고 다시 해 주세요.` : "일부 실패 — 인터넷 연결을 확인하고 1~2분 뒤 같은 문장으로 다시 설치해 주세요", 다음: ""}; }
 
   // 코덱스가 README 를 읽으려고 저장소를 통째로 내려받는 경우가 있다 (2026-09-23 실측: 작업 폴더 안에 makeit-middle-kit-naver/ 를 git clone).
   // 그러면 프로그램 파일이 수강생 PC 에 남는다. 우리 저장소 사본(폴더 이름 + .git 원격 주소 둘 다 맞을 때만)은 지운다.
   try {
     for (const 이름 of await readdir(작업폴더)) {
-      if (!/^makeit-middle-kit(-naver)?$/.test(이름)) continue;
+      const 저장소이름 = 저장소.split("/")[1];
+      if (!/^makeit-middle-kit(-naver)?$/.test(이름) && 이름 !== 저장소이름) continue;
       const 깃설정 = await readFile(join(작업폴더, 이름, ".git", "config"), "utf8").catch(() => "");
-      if (!/github\.com[/:]makeit-edu\/makeit-middle-kit(-naver)?(\.git)?\b/.test(깃설정)) continue;
+      const 우리것 = /github\.com[/:]makeit-edu\/makeit-middle-kit(-naver)?(\.git)?\b/.test(깃설정) || 깃설정.toLowerCase().includes(`github.com/${저장소.toLowerCase()}`) || 깃설정.toLowerCase().includes(`github.com:${저장소.toLowerCase()}`);
+      if (!우리것) continue;
       await rm(join(작업폴더, 이름), {recursive: true, force: true});
       기록[`내려받은 저장소 사본 ${이름}`] = "정리";
     }
@@ -56,6 +72,11 @@ export async function 설치({작업폴더}) {
 
   for (const d of ["00_설정", "01_제목넣는곳", "02_생성결과_확인용"]) await mkdir(join(작업폴더, "애드센스 승인글", d), {recursive: true});
   기록["애드센스 승인글/ 폴더 3개"] = "만듦";
+  // 내 커스텀 키트 표시 — 커스텀이면 적고, 원본으로 다시 깔면 지운다. 로더는 이 표시를 준비 코드의 저장소보다 먼저 본다
+  // (코덱스가 폴더 대본 대신 전역 대본(원본)의 준비 코드를 돌려도 이 폴더는 내 저장소로 돌게).
+  const 표시 = join(작업폴더, "애드센스 승인글", "00_설정", "키트저장소.txt");
+  if (커스텀) { await writeFile(표시, `${저장소}\n`, "utf8"); 기록["내 커스텀 키트 표시"] = "만듦"; }
+  else await rm(표시, {force: true}).catch(() => {});
   // 수강생이 채울 키설정.txt (있으면 그대로 둔다)
   const 키파일 = join(작업폴더, "애드센스 승인글", "00_설정", "키설정.txt");
   try {
@@ -70,7 +91,9 @@ export async function 설치({작업폴더}) {
     기록["키설정.txt"] = "만듦";
   }
 
-  try {
+  // 커스텀 키트는 이 폴더에만 대본을 둔다. 전역 대본은 원본 키트 것이라 그대로 둔다.
+  if (커스텀) 기록["~/.codex/AGENTS.md (전역 대본)"] = "원본 그대로 둠";
+  else try {
     const 전역폴더 = join(homedir(), ".codex");
     const 전역파일 = join(전역폴더, "AGENTS.md");
     let 기존 = "";
@@ -89,9 +112,11 @@ export async function 설치({작업폴더}) {
     기록["~/.codex/AGENTS.md (전역 대본)"] = /더 높은 판/.test(String(e?.message)) ? "이미 있음" : "실패: " + String(e?.message || e).slice(0, 80);
   }
 
-  const 전부됨 = Object.values(기록).every((v) => v === "받음" || v === "갱신" || v === "만듦" || v === "이미 있음" || v === "정리");
+  const 전부됨 = Object.values(기록).every((v) => v === "받음" || v === "갱신" || v === "만듦" || v === "이미 있음" || v === "정리" || v === "원본 그대로 둠");
   return {
     폴더: 작업폴더,
+    저장소,
+    커스텀,
     기록,
     결과: 전부됨 ? "설치 끝" : "일부 실패 — 인터넷 연결을 확인하고 1~2분 뒤 같은 문장으로 다시 설치해 주세요",
     다음: 전부됨 ? "설치 끝. 결과 JSON 은 수강생에게 보여 주지 않는다. 곧바로 작업 폴더 AGENTS.md 대본의 준비 코드를 실행한다. 수강 코드가 아직 없으면 수강생에게 딱 두 문장만 말하고 답을 기다린다: '설치가 끝났어요. 이제 처음 한 번만 하는 키 설정입니다.' '먼저 강의 자료실 공지에 있는 수강 코드를 알려 주세요.' 수강 코드를 받으면 대본대로 수강코드저장을 부르고, 그다음은 수강생이 이 채팅에서 말한 일에 따라 대본을 따른다 (승인글이거나 설치만 했으면 키설정.txt, 네이버면 키설정.txt — OpenAI 키만 있어도 됨, 메킷애센이면 키설정.txt 없이 바로 메킷애센 고치기). 키 설정이 이미 돼 있으면 '설치가 끝났어요.' 한 줄 뒤 수강생이 말한 일을 시작하고, 말한 일이 없으면 '설치가 끝났어요. 하실 일을 말씀해 주세요.' 라고만 한다. 다른 일을 권하지 않는다. 새 채팅을 열라고 하지 않는다." : "",
